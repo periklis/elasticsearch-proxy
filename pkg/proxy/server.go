@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
-
 	configOptions "github.com/openshift/elasticsearch-proxy/pkg/config"
 	handlers "github.com/openshift/elasticsearch-proxy/pkg/handlers"
 	"github.com/openshift/elasticsearch-proxy/pkg/util"
@@ -54,9 +52,10 @@ func NewReverseProxy(target *url.URL, upstreamFlush time.Duration, rootCAs []str
 	proxy.FlushInterval = upstreamFlush
 
 	transport := &http.Transport{
-		MaxIdleConns:          1000,
-		MaxIdleConnsPerHost:   500,
-		IdleConnTimeout:       1 * time.Minute,
+		MaxConnsPerHost:       100,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   50,
+		IdleConnTimeout:       60 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
@@ -68,12 +67,6 @@ func NewReverseProxy(target *url.URL, upstreamFlush time.Duration, rootCAs []str
 		transport.TLSClientConfig = &tls.Config{
 			RootCAs: pool,
 		}
-	}
-	if err := http2.ConfigureTransport(transport); err != nil {
-		if len(rootCAs) > 0 {
-			return nil, err
-		}
-		log.Warnf("Failed to configure http2 transport: %v", err)
 	}
 	proxy.Transport = transport
 
